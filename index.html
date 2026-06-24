@@ -842,6 +842,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <iframe id="sv" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         <div class="info-actions">
           <button class="btn" id="i_sv_open">🗺 Abrir Street View</button>
+          <button class="btn" id="i_route">🧭 Cómo llegar</button>
           <button class="btn primary" id="i_dl">⬇ Descargar escuela</button>
         </div>
         <div class="tags" id="i_tags"></div>
@@ -925,6 +926,33 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
      'Localidades':lyrLoc, 'Colonias':lyrCol, 'Calles (ciudades)':lyrCalles},
     {collapsed:true, position:'topright'}
   ).addTo(map);
+
+  // ---- ubicación actual del usuario ----
+  let userLoc = null, userMarker = null, userCircle = null;
+  const LocateControl = L.Control.extend({
+    options:{position:'topleft'},
+    onAdd:function(){
+      const c = L.DomUtil.create('div','leaflet-bar');
+      const a = L.DomUtil.create('a','',c);
+      a.href='#'; a.title='Mostrar mi ubicación actual'; a.innerHTML='📍';
+      a.style.fontSize='17px'; a.style.textAlign='center'; a.style.lineHeight='30px';
+      L.DomEvent.on(a,'click',L.DomEvent.stop).on(a,'click',()=>{
+        map.locate({setView:true, maxZoom:15, enableHighAccuracy:true});
+      });
+      return c;
+    }
+  });
+  map.addControl(new LocateControl());
+  map.on('locationfound', e=>{
+    userLoc = e.latlng;
+    if(userMarker){ map.removeLayer(userMarker); map.removeLayer(userCircle); }
+    userCircle = L.circle(e.latlng,{radius:e.accuracy/2, color:'#1d4ed8', fillColor:'#3b82f6', fillOpacity:.12, weight:1}).addTo(map);
+    userMarker = L.circleMarker(e.latlng,{radius:7, color:'#fff', weight:2, fillColor:'#1d4ed8', fillOpacity:1})
+      .addTo(map).bindPopup('📍 Tu ubicación actual').openPopup();
+  });
+  map.on('locationerror', ()=>{
+    alert('No se pudo obtener tu ubicación.\nRevisa los permisos de ubicación del navegador. Suele requerir conexión segura (HTTPS) y no funciona al abrir el archivo directamente desde el disco.');
+  });
 
   // ---- build filter groups ----
   const GROUPS = [
@@ -1075,6 +1103,14 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   document.getElementById('i_sv_open').onclick = ()=>{
     if(current==null)return; const r=ROWS[current];
     window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${r[F.lat]},${r[F.lon]}`,'_blank');
+  };
+  // Ruta en Google Maps: desde la ubicación actual (si está disponible) hasta la escuela
+  document.getElementById('i_route').onclick = ()=>{
+    if(current==null)return; const r=ROWS[current];
+    const dest = `${r[F.lat]},${r[F.lon]}`;
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+    if(userLoc) url = `https://www.google.com/maps/dir/?api=1&origin=${userLoc.lat},${userLoc.lng}&destination=${dest}&travelmode=driving`;
+    window.open(url,'_blank');
   };
 
   // ---- CSV download ----
