@@ -747,13 +747,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   :root{
     --bg:#f4f6f9; --panel:#ffffff; --ink:#1f2d3d; --muted:#6b7a8d;
     --line:#e2e8f0; --accent:#2563eb; --accent2:#0ea5e9; --chip:#eef2f7;
+    --dark:#374151; --dark2:#1f2937; --rojo:#AB2240;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:"Segoe UI",system-ui,Arial,sans-serif;color:var(--ink);background:var(--bg)}
   #app{display:flex;flex-direction:column;height:100vh}
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   header .brand-logo{height:42px;width:auto;display:block;flex:none}
-  header h1{font-size:16px;margin:0;font-weight:700;line-height:1.18}
+  header h1{font-size:16px;margin:0 0 5px;font-weight:700;line-height:1.18;padding-bottom:6px;border-bottom:3px solid var(--rojo)}
   header h1 .subt{display:block;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
   header .count{font-size:13px;color:var(--muted)}
   .toolbar{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-left:auto}
@@ -763,8 +764,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .field input:focus{outline:none;border-color:var(--accent)}
   .btn{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 11px;font-size:13px;color:var(--ink)}
   .btn:hover{border-color:var(--accent)}
-  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .btn.primary:hover{background:#1d4ed8}
+  .btn.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+  .btn.primary:hover{background:var(--dark2)}
   main{flex:1;display:flex;min-height:0}
   #filters{width:230px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:12px}
   .group{margin-bottom:16px}
@@ -821,7 +822,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     header h1 .subt{font-size:10.5px}
     .toolbar{margin-left:0;width:100%;gap:8px;flex-direction:column;align-items:stretch}
     #btnFilters{display:inline-flex;justify-content:center;order:-1;font-weight:700;
-      background:var(--accent);color:#fff;border-color:var(--accent);padding:10px}
+      background:var(--dark);color:#fff;border-color:var(--dark);padding:10px}
     .searchgrid{width:100%;gap:6px}
     .field{flex:1 1 46%}
     .field input{width:100%!important}
@@ -873,7 +874,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div style="display:flex;flex-direction:column;gap:6px">
         <button class="btn" id="btnReset">Limpiar todo</button>
         <button class="btn primary" id="btnAll">⬇ Descargar todas (CSV)</button>
-        <button class="btn" id="btnCircle" style="display:none;border-color:var(--accent);color:var(--accent)">⬇ Escuelas del círculo</button>
+        <button class="btn" id="btnCircle" style="display:none;border-color:var(--dark);color:var(--dark)">⬇ Escuelas del círculo</button>
         <button class="btn" id="btnImg">📷 Descargar imagen del mapa</button>
       </div>
     </div>
