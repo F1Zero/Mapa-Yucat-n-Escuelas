@@ -883,7 +883,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <datalist id="l_nombre"></datalist><datalist id="l_mun"></datalist><datalist id="l_loc"></datalist>
       <div style="display:flex;flex-direction:column;gap:6px">
         <button class="btn" id="btnReset">Limpiar todo</button>
-        <button class="btn primary" id="btnAll">⬇ Descargar todas (CSV)</button>
+        <button class="btn primary" id="btnFilt">⬇ Descargar filtradas (CSV)</button>
         <button class="btn" id="btnCircle" style="display:none;border-color:var(--dark);color:var(--dark)">⬇ Escuelas del círculo</button>
         <button class="btn" id="btnImg">📷 Descargar imagen del mapa</button>
       </div>
@@ -1034,7 +1034,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     group._wanted = false;
     function sync(){
       const show = group._wanted && map.getZoom() >= minZoom;
-      if(show && !group.hasLayer(inner)) group.addLayer(inner);
+      if(show && !group.hasLayer(inner)){ group.addLayer(inner); if(inner.bringToBack) inner.bringToBack(); }
       else if(!show && group.hasLayer(inner)) group.removeLayer(inner);
     }
     group.on('add', ()=>{ group._wanted = true; sync(); });
@@ -1061,6 +1061,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
       group.clearLayers();
       group._circle = L.circle(map.getCenter(), {radius:meters, color:color, weight:2, opacity:.9,
         fill:true, fillColor:color, fillOpacity:.06, interactive:false}).addTo(group);
+      group._circle.bringToBack();
       updateCircleBtn();
     });
     group.on('remove', ()=>{ group.clearLayers(); group._circle = null; updateCircleBtn(); });
@@ -1078,6 +1079,12 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   const cluster = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:45, spiderfyOnMaxZoom:true});
   // al iniciar: solo Escuelas activa (las demás capas se activan desde el control)
   map.addLayer(cluster);
+
+  // Las escuelas siempre encima: cualquier capa vectorial que se active se manda al fondo
+  // del lienzo, para que los puntos de escuelas sigan visibles y manejables.
+  map.on('overlayadd', e=>{
+    if(e.layer !== cluster && e.layer.bringToBack) e.layer.bringToBack();
+  });
 
   L.control.layers(
     {'Mapa Internet (CARTO)':cartoLight, 'Fondo claro (offline)':blank},
@@ -1264,6 +1271,13 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     let alum = 0;
     for(const i of visible){ const n = Number(ROWS[i][F.total]); if(!isNaN(n)) alum += n; }
     document.getElementById('alumnos').textContent = alum.toLocaleString('es-MX');
+    // Zoom automático: solo con las búsquedas de arriba (CCT, nombre, municipio, localidad);
+    // el turno y las casillas del panel izquierdo NO mueven la vista
+    const filtroActivo = Object.entries(search).some(([k,v])=>v && k!=='turno');
+    if(filtroActivo && visible.length > 1){
+      const b = L.latLngBounds(visible.map(i=>[ROWS[i][F.lat], ROWS[i][F.lon]]));
+      map.fitBounds(b, {padding:[40,40], maxZoom:15});
+    }
     // Si la búsqueda/filtros dejan UNA sola escuela, mostrar su ficha automáticamente
     // (sin necesidad de tocar el punto; el clic en el punto sigue funcionando)
     if(visible.length === 1){
@@ -1369,9 +1383,10 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     if(current==null)return; const r=ROWS[current];
     downloadCSV([current], `escuela_${r[F.cct]}.csv`);
   };
-  document.getElementById('btnAll').onclick = ()=>{
-    downloadCSV(visible.length?visible:ROWS.map((_,i)=>i),
-      `escuelas_visibles_${visible.length||ROWS.length}.csv`);
+  // Descargar SOLO las escuelas que cumplen los filtros y búsquedas activas
+  document.getElementById('btnFilt').onclick = ()=>{
+    if(!visible.length){ alert('No hay escuelas visibles con los filtros actuales.'); return; }
+    downloadCSV(visible, `escuelas_filtradas_${visible.length}.csv`);
   };
   // Descargar las escuelas (visibles) dentro del círculo de MAYOR radio activo
   document.getElementById('btnCircle').onclick = ()=>{
