@@ -1082,8 +1082,9 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   }
   const r1 = radiusLayer(1000,'#dc2626'), r15 = radiusLayer(1500,'#db2777'),
         r2 = radiusLayer(2000,'#ea580c'), r3 = radiusLayer(3000,'#ca8a04'),
-        r45 = radiusLayer(4500,'#2563eb'), r6 = radiusLayer(6000,'#7c3aed');
-  const radiusGroups = [r1, r15, r2, r3, r45, r6];
+        r45 = radiusLayer(4500,'#2563eb'), r5 = radiusLayer(5000,'#0d9488'),
+        r6 = radiusLayer(6000,'#7c3aed');
+  const radiusGroups = [r1, r15, r2, r3, r45, r5, r6];
   function updateCircleBtn(){
     const btn = document.getElementById('btnCircle');
     if(btn) btn.style.display = radiusGroups.some(g=>g._circle) ? '' : 'none';
@@ -1103,7 +1104,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     {'Mapa Internet (CARTO)':cartoLight, 'Fondo claro (offline)':blank},
     {'🏫 Escuelas':cluster, 'Municipios':lyrMun, 'Carreteras':lyrCarr,
      'Localidades (al acercar)':gLoc, 'Colonias (al acercar)':gCol, 'Calles · ciudades (al acercar)':gCalles,
-     '⭕ Radio 1 km':r1, '⭕ Radio 1.5 km':r15, '⭕ Radio 2 km':r2, '⭕ Radio 3 km':r3, '⭕ Radio 4.5 km':r45, '⭕ Radio 6 km':r6},
+     '⭕ Radio 1 km':r1, '⭕ Radio 1.5 km':r15, '⭕ Radio 2 km':r2, '⭕ Radio 3 km':r3, '⭕ Radio 4.5 km':r45, '⭕ Radio 5 km':r5, '⭕ Radio 6 km':r6},
     {collapsed:true, position:'topright'}
   ).addTo(map);
 
@@ -1484,7 +1485,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     clearTimeout(_gatedTimer);
     // apagar las capas geográficas y los círculos de radio ANTES de alejar, para no
     // redibujar miles de geometrías durante el zoom-out (eso trababa el mapa).
-    [lyrMun, lyrCarr, gLoc, gCol, gCalles, r1, r15, r2, r3, r45, r6].forEach(l=>{ if(map.hasLayer(l)) map.removeLayer(l); });
+    [lyrMun, lyrCarr, gLoc, gCol, gCalles, r1, r15, r2, r3, r45, r5, r6].forEach(l=>{ if(map.hasLayer(l)) map.removeLayer(l); });
     // desmarcar las casillas de los círculos de radio en el control de capas
     document.querySelectorAll('.leaflet-control-layers-overlays label').forEach(l=>{
       if(/Radio/.test(l.textContent)){ const cb=l.querySelector('input'); if(cb) cb.checked=false; }
