@@ -1375,19 +1375,24 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   };
 
   // ---- Ruta de una escuela a otra ----
-  let routeA = null, routeLine = null;
+  let routeA = null, routeLine = null, lastRoute = null;
   function updateRouteInfo(){
     const el = document.getElementById('i_routeInfo');
-    if(routeA){
+    if(lastRoute){
+      el.style.display = 'flex';
+      el.innerHTML = `<span>🚗 <b>${lastRoute.a}</b> → <b>${lastRoute.b}</b> · ${lastRoute.km} km en línea recta</span><button id="i_clearA" title="Quitar ruta">✕</button>`;
+      document.getElementById('i_clearA').onclick = clearRouteA;
+    } else if(routeA){
       el.style.display = 'flex';
       el.innerHTML = `<span>🚏 Origen de ruta: <b>${routeA.nombre}</b> · ${routeA.cct}</span><button id="i_clearA" title="Quitar origen">✕</button>`;
       document.getElementById('i_clearA').onclick = clearRouteA;
     } else { el.style.display='none'; el.innerHTML=''; }
   }
-  function clearRouteA(){ routeA = null; if(routeLine){ map.removeLayer(routeLine); routeLine=null; } updateRouteInfo(); }
+  function clearRouteA(){ routeA = null; lastRoute = null; if(routeLine){ map.removeLayer(routeLine); routeLine=null; } updateRouteInfo(); }
   document.getElementById('i_setA').onclick = ()=>{
     if(current==null) return; const r=ROWS[current];
     routeA = { i:current, lat:r[F.lat], lon:r[F.lon], nombre:r[F.nombre], cct:r[F.cct] };
+    lastRoute = null;
     updateRouteInfo();
   };
   document.getElementById('i_routeAB').onclick = ()=>{
@@ -1399,8 +1404,10 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     routeLine = L.polyline([[routeA.lat,routeA.lon],[r[F.lat],r[F.lon]]],
       {color:'#7c3aed', weight:3, dashArray:'7,7', opacity:.9}).addTo(map);
     const km = (map.distance([routeA.lat,routeA.lon],[r[F.lat],r[F.lon]])/1000).toFixed(2);
-    routeLine.bindTooltip(`${routeA.nombre} → ${r[F.nombre]} · ${km} km (línea recta)`, {sticky:true}).openTooltip();
-    try{ map.fitBounds(routeLine.getBounds(), {padding:[60,60]}); }catch(e){}
+    lastRoute = { a: routeA.nombre, b: r[F.nombre], km: km };
+    routeLine.bindTooltip(`${routeA.nombre} → ${r[F.nombre]} · ${km} km (línea recta)`);
+    updateRouteInfo();
+    try{ map.fitBounds(routeLine.getBounds(), {padding:[40,40], maxZoom:12, animate:false}); }catch(e){}
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${routeA.lat},${routeA.lon}&destination=${r[F.lat]},${r[F.lon]}&travelmode=driving`,'_blank');
   };
 
@@ -1473,6 +1480,8 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     Object.keys(search).forEach(k=>search[k]='');
     Object.values(map_in).forEach(id=>document.getElementById(id).value='');
     document.querySelectorAll('.clear-x').forEach(b=>b.style.display='none');
+    // cancelar cualquier re-dibujo pendiente de las capas pesadas (debounce del zoom)
+    clearTimeout(_gatedTimer);
     // apagar las capas geográficas y los círculos de radio ANTES de alejar, para no
     // redibujar miles de geometrías durante el zoom-out (eso trababa el mapa).
     [lyrMun, lyrCarr, gLoc, gCol, gCalles, r1, r15, r2, r3, r45, r6].forEach(l=>{ if(map.hasLayer(l)) map.removeLayer(l); });
