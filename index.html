@@ -1026,7 +1026,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   const lyrMun = geoLayer(GEO.municipios, {fill:false,color:'#334155',weight:1.3,opacity:.85},
     p=> p.NOM_MUN ? ('<b>'+p.NOM_MUN+'</b><br>Municipio'+(p.NOM_DIST?' · '+p.NOM_DIST:'')) : '');
   const lyrCarr = geoLayer(GEO.carreteras, {color:'#475569',weight:1.4,opacity:.85,fill:false});
-  const lyrLoc = geoLayer(GEO.localidades, {color:'#64748b',weight:.7,opacity:.6,fillColor:'#64748b',fillOpacity:.04},
+  const lyrLoc = geoLayer(GEO.localidades, {color:'#a3aec0',weight:.7,opacity:.55,fillColor:'#a3aec0',fillOpacity:.03},
     p=> p.name ? ('<b>'+p.name+'</b><br>Localidad') : '');
   const lyrCol = geoLayer(GEO.colonias, {color:'#94a3b8',weight:.6,opacity:.6,fill:false},
     p=> p.name ? ('<b>'+p.name+'</b><br>Colonia') : '');
@@ -1046,12 +1046,19 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     group.on('add', ()=>{ group._wanted = true; sync(); });
     group.on('remove', ()=>{ group._wanted = false; group.removeLayer(inner); });
     group._sync = sync;
+    group._hideNow = ()=>{ if(group.hasLayer(inner)) group.removeLayer(inner); };
     return group;
   }
   const gLoc = gatedLayer(lyrLoc, 11);
   const gCol = gatedLayer(lyrCol, 11);
-  const gCalles = gatedLayer(lyrCalles, 12);
-  map.on('zoomend', ()=>{ gLoc._sync(); gCol._sync(); gCalles._sync(); });
+  const gCalles = gatedLayer(lyrCalles, 13);
+  const gatedAll = [gLoc, gCol, gCalles];
+  // Ocultar las capas pesadas DURANTE la animación de zoom (evita redibujar miles de
+  // geometrías cuadro por cuadro al alejar/acercar, que traba el mapa). Se re-dibujan
+  // con un pequeño retardo (debounce) hasta que se deja de hacer zoom.
+  let _gatedTimer = null;
+  map.on('zoomstart', ()=>{ clearTimeout(_gatedTimer); gatedAll.forEach(g=>g._hideNow()); });
+  map.on('zoomend', ()=>{ clearTimeout(_gatedTimer); _gatedTimer = setTimeout(()=>gatedAll.forEach(g=>g._sync()), 400); });
 
   // Etiquetas de CCT junto a los puntos: solo al acercar (zoom >= LABEL_ZOOM)
   const LABEL_ZOOM = 14;
