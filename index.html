@@ -782,7 +782,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   label.chk input{accent-color:var(--accent)}
   label.chk .dot{width:10px;height:10px;border-radius:50%;flex:none}
   label.chk .n{margin-left:auto;font-size:11px;color:var(--muted)}
-  #map{flex:1;min-height:0;background:#e8eef3}
+  #map{flex:1;min-height:0;background:#f7fafd}
   .leaflet-control-layers{font-size:13px}
   .leaflet-control-layers-list{line-height:1.7}
   #info{width:360px;background:var(--panel);border-left:1px solid var(--line);overflow:auto;display:none}
@@ -802,6 +802,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   table.stats tr.hl td{background:#f0f7ff}
   .serv-title{font-size:12px;font-weight:700;color:var(--ink);margin:16px 0 4px;padding-top:12px;border-top:2px solid var(--rojo)}
   .info-actions{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap}
+  #i_routeInfo{display:none;align-items:center;gap:8px;font-size:12px;background:#f3effe;border:1px solid #ddd6fe;
+    color:#5b21b6;padding:6px 9px;border-radius:8px;margin:2px 0 8px}
+  #i_routeInfo button{border:none;background:transparent;color:#7c3aed;cursor:pointer;font-size:15px;margin-left:auto;padding:0 3px}
   .legend{font-size:11px;color:var(--muted);margin-top:10px}
   .closebtn{position:absolute;top:12px;right:12px;cursor:pointer;border:none;background:transparent;font-size:20px;color:var(--muted)}
   .leaflet-tooltip.cct-label{background:rgba(255,255,255,.82);border:none;box-shadow:none;color:#1f2d3d;
@@ -904,8 +907,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="info-actions">
           <button class="btn" id="i_sv_open">🗺 Abrir Street View</button>
           <button class="btn" id="i_route">🧭 Cómo llegar</button>
+          <button class="btn" id="i_setA">📌 Fijar origen</button>
+          <button class="btn" id="i_routeAB">🚗 Ruta escuela→escuela</button>
           <button class="btn primary" id="i_dl">⬇ Descargar escuela</button>
         </div>
+        <div id="i_routeInfo"></div>
         <div class="tags" id="i_tags"></div>
         <table class="stats" id="i_dir"></table>
         <table class="stats" id="i_stats"></table>
@@ -1329,6 +1335,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     const cel = String(r[F.cel]||'').trim(), correo = String(r[F.correo]||'').trim();
     if(cel){ const tel=cel.split(/\s+/)[0]; dirRows += `<tr><td class="k">Teléfono</td><td class="v" style="text-align:left;font-weight:400"><a href="tel:${tel}">${cel}</a></td></tr>`; }
     if(correo){ dirRows += `<tr><td class="k">Correo</td><td class="v" style="text-align:left;font-weight:400;word-break:break-all"><a href="mailto:${correo}">${correo}</a></td></tr>`; }
+    dirRows += `<tr><td class="k">Coordenadas</td><td class="v" style="text-align:left;font-weight:400"><a href="https://www.google.com/maps?q=${r[F.lat]},${r[F.lon]}" target="_blank" rel="noopener">${r[F.lat]}, ${r[F.lon]}</a></td></tr>`;
     document.getElementById('i_dir').innerHTML = dirRows;
     document.getElementById('i_stats').innerHTML = STAT_FIELDS.map(([k,label,hl])=>{
       const v = r[F[k]]; const disp = (v===''||v==null)?'—':Number(v).toLocaleString('es-MX');
@@ -1344,6 +1351,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     document.getElementById('sv').src =
       `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lon}&cbp=11,0,0,0,0&output=svembed`;
     map.setView([lat,lon], Math.max(map.getZoom(),15));
+    updateRouteInfo();
   }
   document.getElementById('infoClose').onclick = ()=>document.getElementById('info').classList.remove('show');
   document.getElementById('i_sv_open').onclick = ()=>{
@@ -1357,6 +1365,36 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     let url = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
     if(userLoc) url = `https://www.google.com/maps/dir/?api=1&origin=${userLoc.lat},${userLoc.lng}&destination=${dest}&travelmode=driving`;
     window.open(url,'_blank');
+  };
+
+  // ---- Ruta de una escuela a otra ----
+  let routeA = null, routeLine = null;
+  function updateRouteInfo(){
+    const el = document.getElementById('i_routeInfo');
+    if(routeA){
+      el.style.display = 'flex';
+      el.innerHTML = `<span>🚏 Origen de ruta: <b>${routeA.nombre}</b> · ${routeA.cct}</span><button id="i_clearA" title="Quitar origen">✕</button>`;
+      document.getElementById('i_clearA').onclick = clearRouteA;
+    } else { el.style.display='none'; el.innerHTML=''; }
+  }
+  function clearRouteA(){ routeA = null; if(routeLine){ map.removeLayer(routeLine); routeLine=null; } updateRouteInfo(); }
+  document.getElementById('i_setA').onclick = ()=>{
+    if(current==null) return; const r=ROWS[current];
+    routeA = { i:current, lat:r[F.lat], lon:r[F.lon], nombre:r[F.nombre], cct:r[F.cct] };
+    updateRouteInfo();
+  };
+  document.getElementById('i_routeAB').onclick = ()=>{
+    if(current==null) return;
+    if(!routeA){ alert('Para generar la ruta entre dos escuelas:\n1) Abre la escuela de ORIGEN y pulsa "📌 Fijar origen".\n2) Abre la otra escuela y pulsa "🚗 Ruta escuela→escuela".'); return; }
+    if(routeA.i===current){ alert('El origen y el destino son la misma escuela.\nFija otra escuela como origen.'); return; }
+    const r=ROWS[current];
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline([[routeA.lat,routeA.lon],[r[F.lat],r[F.lon]]],
+      {color:'#7c3aed', weight:3, dashArray:'7,7', opacity:.9}).addTo(map);
+    const km = (map.distance([routeA.lat,routeA.lon],[r[F.lat],r[F.lon]])/1000).toFixed(2);
+    routeLine.bindTooltip(`${routeA.nombre} → ${r[F.nombre]} · ${km} km (línea recta)`, {sticky:true}).openTooltip();
+    try{ map.fitBounds(routeLine.getBounds(), {padding:[60,60]}); }catch(e){}
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${routeA.lat},${routeA.lon}&destination=${r[F.lat]},${r[F.lon]}&travelmode=driving`,'_blank');
   };
 
   // ---- CSV download ----
@@ -1405,7 +1443,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     const txt = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Generando…';
     try{
       const canvas = await html2canvas(mapEl, {
-        useCORS:true, backgroundColor:'#e8eef3', scale:2, logging:false, imageTimeout:15000,
+        useCORS:true, backgroundColor:'#f7fafd', scale:2, logging:false, imageTimeout:15000,
         ignoreElements: el => el.classList && el.classList.contains('leaflet-top') // oculta zoom/capas/ubicación
       });
       const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(/:/g,'');
@@ -1438,6 +1476,8 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     // quitar el marcador de búsqueda de lugar
     if(geoMarker){ map.removeLayer(geoMarker); geoMarker = null; }
     const sg = document.getElementById('s_geo'); if(sg) sg.value='';
+    // limpiar la ruta escuela→escuela (origen + línea)
+    clearRouteA();
     onFilterChange();
     // cerrar la ficha y volver a la vista de inicio (todo el estado), sin animación
     document.getElementById('info').classList.remove('show');
