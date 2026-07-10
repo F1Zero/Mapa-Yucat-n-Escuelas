@@ -758,9 +758,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   header h1 .subt{display:block;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
   header .count{font-size:13px;color:var(--muted)}
   .toolbar{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-left:auto}
-  .searchgrid{display:flex;gap:8px;flex-wrap:wrap}
-  .field{display:flex;flex-direction:column;font-size:11px;color:var(--muted)}
+  .searchgrid{display:grid;grid-template-columns:repeat(3,165px);gap:8px 10px}
+  .field{display:flex;flex-direction:column;font-size:11px;color:var(--muted);min-width:0}
   .field input{width:150px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;color:var(--ink)}
+  .searchgrid .field input{width:100%}
+  .geo-field{display:flex;gap:4px;align-items:stretch}
+  .geo-field input{min-width:0}
+  .pinbtn{flex:none;width:34px;border:1px solid var(--line);background:#fff;border-radius:7px;cursor:pointer;font-size:15px;color:var(--ink);line-height:1}
+  .pinbtn:hover{border-color:var(--accent)}
+  .pinbtn.active{background:var(--dark);color:#fff;border-color:var(--dark)}
   .field input:focus{outline:none;border-color:var(--accent)}
   .input-wrap{position:relative;display:block}
   .field .input-wrap input{padding-right:24px}
@@ -802,9 +808,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   table.stats tr.hl td{background:#f0f7ff}
   .serv-title{font-size:12px;font-weight:700;color:var(--ink);margin:16px 0 4px;padding-top:12px;border-top:2px solid var(--rojo)}
   .info-actions{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap}
-  #i_routeInfo{display:none;align-items:center;gap:8px;font-size:12px;background:#f3effe;border:1px solid #ddd6fe;
-    color:#5b21b6;padding:6px 9px;border-radius:8px;margin:2px 0 8px}
-  #i_routeInfo button{border:none;background:transparent;color:#7c3aed;cursor:pointer;font-size:15px;margin-left:auto;padding:0 3px}
+  #routePanel{display:none;width:250px;max-width:74vw;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.20);padding:10px;font-size:13px}
+  #routePanel.show{display:block}
+  #routePanel .rp-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}
+  #routePanel .rp-head button{border:none;background:transparent;cursor:pointer;font-size:17px;line-height:1;color:var(--muted);padding:0 4px}
+  #routePanel ol{margin:0 0 6px;padding-left:20px;max-height:150px;overflow:auto}
+  #routePanel li{margin:3px 0;line-height:1.35}
+  #routePanel li .rm{color:var(--rojo);cursor:pointer;margin-left:4px;font-weight:700}
+  #routePanel .rp-dist{font-size:12px;color:var(--muted);margin-bottom:8px}
+  #routePanel .rp-actions{display:flex;gap:6px;flex-wrap:wrap}
+  #routePanel .rp-actions .btn{flex:1 1 auto;padding:6px 8px;font-size:12px}
   .legend{font-size:11px;color:var(--muted);margin-top:10px}
   .closebtn{position:absolute;top:12px;right:12px;cursor:pointer;border:none;background:transparent;font-size:20px;color:var(--muted)}
   .leaflet-tooltip.cct-label{background:rgba(255,255,255,.82);border:none;box-shadow:none;color:#1f2d3d;
@@ -836,8 +850,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     .toolbar{margin-left:0;width:100%;gap:8px;flex-direction:column;align-items:stretch}
     #btnFilters{display:inline-flex;justify-content:center;order:-1;font-weight:700;
       background:var(--dark);color:#fff;border-color:var(--dark);padding:10px}
-    .searchgrid{width:100%;gap:6px}
-    .field{flex:1 1 46%}
+    .searchgrid{width:100%;gap:6px;grid-template-columns:repeat(2,minmax(0,1fr))}
     .field input{width:100%!important}
     .toolbar > div[style]{flex-direction:row!important;flex-wrap:wrap;width:100%;gap:6px}
     .toolbar .btn{flex:1 1 auto}
@@ -861,6 +874,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
       border-left:none;border-top:1px solid var(--line);border-radius:16px 16px 0 0;z-index:1300;
       box-shadow:0 -6px 24px rgba(0,0,0,.22)}
     #sv{height:180px}
+    /* Panel de ruta fijo al fondo de la pantalla en móvil (queda detrás de la ficha) */
+    #routePanel{position:fixed !important;left:8px;right:auto;bottom:8px;z-index:1200;width:260px;max-width:82vw}
+    #routePanel ol{max-height:110px}
   }
 </style>
 </head>
@@ -880,7 +896,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="field">Nombre<input id="s_nombre" list="l_nombre" placeholder="Nombre…" autocomplete="off"></div>
         <div class="field">Municipio<input id="s_mun" list="l_mun" placeholder="Municipio…" autocomplete="off"></div>
         <div class="field">Localidad<input id="s_loc" list="l_loc" placeholder="Localidad…" autocomplete="off"></div>
-        <div class="field">Buscar lugar / coordenadas<input id="s_geo" placeholder="Dirección o 'lat, lon' + Enter" autocomplete="off" style="width:210px"></div>
+        <div class="field">Buscar lugar / poner punto<div class="geo-field"><input id="s_geo" placeholder="Dirección o 'lat, lon'" autocomplete="off"><button type="button" id="btnPin" class="pinbtn" title="Colocar un punto en el mapa (clic para activar, luego toca el mapa)">📍</button></div></div>
       </div>
       <datalist id="l_cct"></datalist><datalist id="l_turno"></datalist>
       <datalist id="l_nombre"></datalist><datalist id="l_mun"></datalist><datalist id="l_loc"></datalist>
@@ -907,11 +923,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="info-actions">
           <button class="btn" id="i_sv_open">🗺 Abrir Street View</button>
           <button class="btn" id="i_route">🧭 Cómo llegar</button>
-          <button class="btn" id="i_setA">📌 Fijar origen</button>
-          <button class="btn" id="i_routeAB">🚗 Ruta escuela→escuela</button>
+          <button class="btn" id="i_addRoute">➕ Agregar a la ruta</button>
           <button class="btn primary" id="i_dl">⬇ Descargar escuela</button>
         </div>
-        <div id="i_routeInfo"></div>
         <div class="tags" id="i_tags"></div>
         <table class="stats" id="i_dir"></table>
         <table class="stats" id="i_stats"></table>
@@ -1324,12 +1338,13 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     ['s_plaza','Plaza cívica'],['s_sanit','Servicios sanitarios'],['s_taller','Taller'],
     ['s_computo','Taller de cómputo'],['s_techo','Techumbre'],
   ];
-  let current = null;
+  let current = null, currentPlace = null;
 
   function showInfo(i){
-    current = i;
+    current = i; currentPlace = null;
     const r = ROWS[i];
     document.getElementById('info').classList.add('show');
+    document.getElementById('i_dl').style.display = '';
     document.getElementById('i_cct').textContent = r[F.cct] + ' · ' + (r[F.turno]||'');
     document.getElementById('i_nombre').textContent = r[F.nombre];
     document.getElementById('i_loc').textContent = `${r[F.mun]}, ${r[F.loc]}`;
@@ -1359,58 +1374,157 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     document.getElementById('sv').src =
       `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lon}&cbp=11,0,0,0,0&output=svembed`;
     map.setView([lat,lon], Math.max(map.getZoom(),15));
-    updateRouteInfo();
   }
   document.getElementById('infoClose').onclick = ()=>document.getElementById('info').classList.remove('show');
+  // Street View del punto activo (escuela o punto colocado)
   document.getElementById('i_sv_open').onclick = ()=>{
-    if(current==null)return; const r=ROWS[current];
-    window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${r[F.lat]},${r[F.lon]}`,'_blank');
+    const p=activePoint(); if(!p) return;
+    window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lon}`,'_blank');
   };
-  // Ruta en Google Maps: desde la ubicación actual (si está disponible) hasta la escuela
+  // "Cómo llegar": desde la ubicación actual (si está) hasta el punto activo
   document.getElementById('i_route').onclick = ()=>{
-    if(current==null)return; const r=ROWS[current];
-    const dest = `${r[F.lat]},${r[F.lon]}`;
+    const p=activePoint(); if(!p) return;
+    const dest = `${p.lat},${p.lon}`;
     let url = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
     if(userLoc) url = `https://www.google.com/maps/dir/?api=1&origin=${userLoc.lat},${userLoc.lng}&destination=${dest}&travelmode=driving`;
     window.open(url,'_blank');
   };
 
-  // ---- Ruta de una escuela a otra ----
-  let routeA = null, routeLine = null, lastRoute = null;
-  function updateRouteInfo(){
-    const el = document.getElementById('i_routeInfo');
-    if(lastRoute){
-      el.style.display = 'flex';
-      el.innerHTML = `<span>🚗 <b>${lastRoute.a}</b> → <b>${lastRoute.b}</b> · ${lastRoute.km} km en línea recta</span><button id="i_clearA" title="Quitar ruta">✕</button>`;
-      document.getElementById('i_clearA').onclick = clearRouteA;
-    } else if(routeA){
-      el.style.display = 'flex';
-      el.innerHTML = `<span>🚏 Origen de ruta: <b>${routeA.nombre}</b> · ${routeA.cct}</span><button id="i_clearA" title="Quitar origen">✕</button>`;
-      document.getElementById('i_clearA').onclick = clearRouteA;
-    } else { el.style.display='none'; el.innerHTML=''; }
+  // ====== PUNTOS EN EL MAPA (info INEGI) + RUTA DE VARIAS PARADAS ======
+  // Punto-en-polígono para obtener municipio/localidad/colonia OFFLINE de un clic.
+  function ringHas(pt, ring){
+    let inside=false;
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+      if(((yi>pt[1])!==(yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/((yj-yi)||1e-12)+xi)) inside=!inside;
+    }
+    return inside;
   }
-  function clearRouteA(){ routeA = null; lastRoute = null; if(routeLine){ map.removeLayer(routeLine); routeLine=null; } updateRouteInfo(); }
-  document.getElementById('i_setA').onclick = ()=>{
-    if(current==null) return; const r=ROWS[current];
-    routeA = { i:current, lat:r[F.lat], lon:r[F.lon], nombre:r[F.nombre], cct:r[F.cct] };
-    lastRoute = null;
-    updateRouteInfo();
+  function geomHas(pt, g){
+    if(!g) return false;
+    if(g.type==='Polygon'){
+      if(!ringHas(pt, g.coordinates[0])) return false;
+      for(let k=1;k<g.coordinates.length;k++){ if(ringHas(pt, g.coordinates[k])) return false; }
+      return true;
+    }
+    if(g.type==='MultiPolygon'){
+      for(const poly of g.coordinates){
+        if(ringHas(pt, poly[0])){
+          let hole=false; for(let k=1;k<poly.length;k++){ if(ringHas(pt, poly[k])){ hole=true; break; } }
+          if(!hole) return true;
+        }
+      }
+    }
+    return false;
+  }
+  function featPropsAt(lat, lon, gj){
+    if(!gj || !gj.features) return null;
+    const pt=[lon,lat];
+    for(const f of gj.features){ if(geomHas(pt, f.geometry)) return f.properties||{}; }
+    return null;
+  }
+  function inegiInfo(lat, lon){
+    const m=featPropsAt(lat,lon,GEO.municipios), l=featPropsAt(lat,lon,GEO.localidades), c=featPropsAt(lat,lon,GEO.colonias);
+    return { mun:m?(m.NOM_MUN||''):'', cveMun:m?(m.CVE_MUN||''):'', dist:m?(m.NOM_DIST||''):'',
+             loc:l?(l.name||''):'', col:c?(c.name||''):'' };
+  }
+
+  // Punto activo (escuela abierta o punto colocado)
+  function activePoint(){
+    if(current!=null){ const r=ROWS[current]; return {lat:+r[F.lat], lon:+r[F.lon], label:r[F.nombre], kind:'escuela'}; }
+    if(currentPlace) return {lat:currentPlace.lat, lon:currentPlace.lon, label:currentPlace.label, kind:'punto'};
+    return null;
+  }
+
+  // Modo "poner punto" + puntos colocados
+  let placeMode=false;
+  const placedPts=[];
+  const btnPin=document.getElementById('btnPin');
+  btnPin.onclick=()=>{
+    placeMode=!placeMode;
+    btnPin.classList.toggle('active', placeMode);
+    map.getContainer().style.cursor = placeMode ? 'crosshair' : '';
   };
-  document.getElementById('i_routeAB').onclick = ()=>{
-    if(current==null) return;
-    if(!routeA){ alert('Para generar la ruta entre dos escuelas:\n1) Abre la escuela de ORIGEN y pulsa "📌 Fijar origen".\n2) Abre la otra escuela y pulsa "🚗 Ruta escuela→escuela".'); return; }
-    if(routeA.i===current){ alert('El origen y el destino son la misma escuela.\nFija otra escuela como origen.'); return; }
-    const r=ROWS[current];
-    if(routeLine) map.removeLayer(routeLine);
-    routeLine = L.polyline([[routeA.lat,routeA.lon],[r[F.lat],r[F.lon]]],
-      {color:'#7c3aed', weight:3, dashArray:'7,7', opacity:.9}).addTo(map);
-    const km = (map.distance([routeA.lat,routeA.lon],[r[F.lat],r[F.lon]])/1000).toFixed(2);
-    lastRoute = { a: routeA.nombre, b: r[F.nombre], km: km };
-    routeLine.bindTooltip(`${routeA.nombre} → ${r[F.nombre]} · ${km} km (línea recta)`);
-    updateRouteInfo();
-    try{ map.fitBounds(routeLine.getBounds(), {padding:[40,40], maxZoom:12, animate:false}); }catch(e){}
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${routeA.lat},${routeA.lon}&destination=${r[F.lat]},${r[F.lon]}&travelmode=driving`,'_blank');
-  };
+  map.on('click', e=>{ if(placeMode) placePoint(e.latlng.lat, e.latlng.lng); });
+  function placePoint(lat, lon){
+    const info=inegiInfo(lat, lon);
+    const label=info.col || info.loc || info.mun || 'Punto';
+    const m=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:2,fillColor:'#0d9488',fillOpacity:1}).addTo(map);
+    const pp={lat,lon,info,label,marker:m};
+    m.on('click',()=>showPlaceInfo(pp));
+    placedPts.push(pp);
+    showPlaceInfo(pp);
+  }
+  function showPlaceInfo(pp){
+    current=null; currentPlace=pp;
+    document.getElementById('info').classList.add('show');
+    document.getElementById('i_cct').textContent='📍 Punto en el mapa';
+    document.getElementById('i_nombre').textContent = pp.info.col || pp.info.loc || 'Punto seleccionado';
+    document.getElementById('i_loc').textContent = [pp.info.mun, pp.info.loc].filter(Boolean).join(', ') || '—';
+    document.getElementById('i_tags').innerHTML = [pp.info.mun, pp.info.loc, pp.info.col].filter(Boolean).map(t=>`<span class="tag">${t}</span>`).join('');
+    const rows=[['Coordenadas', pp.lat.toFixed(6)+', '+pp.lon.toFixed(6)]];
+    if(pp.info.mun) rows.push(['Municipio', pp.info.mun+(pp.info.cveMun?(' · '+pp.info.cveMun):'')]);
+    if(pp.info.dist) rows.push(['Distrito', pp.info.dist]);
+    if(pp.info.loc) rows.push(['Localidad', pp.info.loc]);
+    if(pp.info.col) rows.push(['Asentamiento / Colonia', pp.info.col]);
+    if(!pp.info.mun && !pp.info.loc && !pp.info.col) rows.push(['Nota','Sin datos de las capas INEGI en este punto']);
+    document.getElementById('i_dir').innerHTML = rows.map(([k,v])=>`<tr><td class="k">${k}</td><td class="v" style="text-align:left;font-weight:400">${v}</td></tr>`).join('');
+    document.getElementById('i_stats').innerHTML='';
+    const servEl=document.getElementById('i_serv'); servEl.innerHTML=''; servEl.style.display='none';
+    document.getElementById('i_dl').style.display='none';
+    document.getElementById('sv').src=`https://maps.google.com/maps?q=&layer=c&cbll=${pp.lat},${pp.lon}&cbp=11,0,0,0,0&output=svembed`;
+    map.setView([pp.lat, pp.lon], Math.max(map.getZoom(),15));
+  }
+
+  // Ruta de varias paradas (escuelas y/o puntos)
+  const routePts=[]; let routeLine=null;
+  function addRoutePt(){
+    const p=activePoint(); if(!p) return;
+    routePts.push({lat:p.lat, lon:p.lon, label:p.label, kind:p.kind});
+    drawRoute(); updateRoutePanel();
+  }
+  function removeRoutePt(i){ routePts.splice(i,1); drawRoute(); updateRoutePanel(); }
+  function clearRoute(){ routePts.length=0; if(routeLine){ map.removeLayer(routeLine); routeLine=null; } updateRoutePanel(); }
+  function drawRoute(){
+    if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+    if(routePts.length>=2) routeLine=L.polyline(routePts.map(p=>[p.lat,p.lon]), {color:'#7c3aed',weight:3,dashArray:'7,7',opacity:.9}).addTo(map);
+  }
+  function totalKm(){ let m=0; for(let i=1;i<routePts.length;i++) m+=map.distance([routePts[i-1].lat,routePts[i-1].lon],[routePts[i].lat,routePts[i].lon]); return m/1000; }
+  function updateRoutePanel(){
+    const panel=document.getElementById('routePanel'); if(!panel) return;
+    if(!routePts.length){ panel.classList.remove('show'); return; }
+    panel.classList.add('show');
+    document.getElementById('rp-count').textContent = routePts.length + (routePts.length===1?' parada':' paradas');
+    const list=document.getElementById('rp-list');
+    list.innerHTML = routePts.map((p,i)=>`<li>${p.kind==='punto'?'📍':'🏫'} ${p.label} <span class="rm" data-i="${i}" title="Quitar">✕</span></li>`).join('');
+    list.querySelectorAll('.rm').forEach(el=> el.onclick=()=>removeRoutePt(+el.dataset.i));
+    document.getElementById('rp-dist').textContent = routePts.length>=2 ? ('Distancia (línea recta): '+totalKm().toFixed(2)+' km') : 'Agrega otra parada para la ruta';
+  }
+  function openRouteGoogle(){
+    if(routePts.length<2){ alert('Agrega al menos 2 paradas para generar la ruta.'); return; }
+    const c=p=>`${p.lat},${p.lon}`;
+    const origin=c(routePts[0]), destination=c(routePts[routePts.length-1]);
+    const mids=routePts.slice(1,-1).map(c);
+    let url=`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    if(mids.length) url+='&waypoints='+encodeURIComponent(mids.join('|'));
+    window.open(url,'_blank');
+  }
+  const RouteControl=L.Control.extend({
+    options:{position:'bottomleft'},
+    onAdd:function(){
+      const c=L.DomUtil.create('div'); c.id='routePanel';
+      c.innerHTML=`<div class="rp-head"><span>🧭 Ruta · <span id="rp-count"></span></span><button id="rp-hide" title="Ocultar">–</button></div>`+
+        `<ol id="rp-list"></ol><div class="rp-dist" id="rp-dist"></div>`+
+        `<div class="rp-actions"><button class="btn primary" id="rp-open">🗺 Abrir en Google Maps</button><button class="btn" id="rp-clear">Limpiar ruta</button></div>`;
+      L.DomEvent.disableClickPropagation(c); L.DomEvent.disableScrollPropagation(c);
+      return c;
+    }
+  });
+  map.addControl(new RouteControl());
+  document.getElementById('rp-open').onclick=openRouteGoogle;
+  document.getElementById('rp-clear').onclick=clearRoute;
+  document.getElementById('rp-hide').onclick=()=>document.getElementById('routePanel').classList.remove('show');
+  document.getElementById('i_addRoute').onclick=addRoutePt;
 
   // ---- CSV download ----
   const ALL_COLS = [
@@ -1493,8 +1607,11 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     // quitar el marcador de búsqueda de lugar
     if(geoMarker){ map.removeLayer(geoMarker); geoMarker = null; }
     const sg = document.getElementById('s_geo'); if(sg) sg.value='';
-    // limpiar la ruta escuela→escuela (origen + línea)
-    clearRouteA();
+    // limpiar la ruta de paradas, los puntos colocados y el modo "poner punto"
+    clearRoute();
+    placedPts.forEach(pp=>{ if(pp.marker) map.removeLayer(pp.marker); }); placedPts.length=0;
+    if(placeMode){ placeMode=false; btnPin.classList.remove('active'); map.getContainer().style.cursor=''; }
+    currentPlace = null;
     onFilterChange();
     // cerrar la ficha y volver a la vista de inicio (todo el estado), sin animación
     document.getElementById('info').classList.remove('show');
