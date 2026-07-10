@@ -976,6 +976,8 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
 (function(){
   const F = {}; DATA.fields.forEach((f,i)=>F[f]=i);
   const ROWS = DATA.rows;
+  // Puntos un poco más grandes en celular (más fáciles de tocar); normales en escritorio
+  const PT_RADIUS = window.matchMedia('(max-width:820px)').matches ? 8 : 6;
 
   // En el filtro de NIVELX, combinar estos valores en una sola opción "Otros Servicio"
   const NIVEL_OTROS = new Set(['FEDERAL','FEDERALIZADO','ESTATAL','PARTICULAR','OTRA DEPENDENCIA']);
@@ -1287,7 +1289,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
       if(!matches(r)) continue;
       visible.push(i);
       const m = L.circleMarker([r[F.lat],r[F.lon]],{
-        radius:6, color:'#fff', weight:1, fillColor:colorFor(r), fillOpacity:.9
+        radius:PT_RADIUS, color:'#fff', weight:1, fillColor:colorFor(r), fillOpacity:.9
       });
       m.bindPopup(()=>popupHtml(i));
       m.bindTooltip(String(r[F.cct]||''), {permanent:true, direction:'right', className:'cct-label', offset:[7,0]});
