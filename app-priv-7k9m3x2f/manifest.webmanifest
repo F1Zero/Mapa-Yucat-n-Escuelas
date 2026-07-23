@@ -1,0 +1,18 @@
+{
+  "name": "SIG Escuelas Yucatán — SEGEY (privada)",
+  "short_name": "Escuelas Yuc",
+  "description": "Mapa interactivo de escuelas de Yucatán. Acceso restringido. Funciona sin conexión.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1f2937",
+  "theme_color": "#AB2240",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
