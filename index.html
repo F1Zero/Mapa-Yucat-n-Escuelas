@@ -1153,11 +1153,20 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
 
   // ---- map ----
   const map = L.map('map',{preferCanvas:true}).setView([20.7,-89.0],8);
-  const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19, subdomains:'abcd', crossOrigin:'anonymous'
+  // Fondos de mapa GRATUITOS sin API key. (CARTO dejó de ser gratis y ahora
+  // marca los tiles con "API KEY REQUIRED"; por eso se reemplaza por Esri/OSM.)
+  const esriBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
+    maxZoom:19, maxNativeZoom:16, crossOrigin:'anonymous', attribution:'&copy; OpenStreetMap, &copy; Esri'
+  });
+  const esriRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{
+    maxZoom:19, maxNativeZoom:16, crossOrigin:'anonymous'
+  });
+  const claroEsri = L.layerGroup([esriBase, esriRef]);   // gris claro con etiquetas de lugares
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19, subdomains:'abc', crossOrigin:'anonymous', attribution:'&copy; OpenStreetMap'
   });
   const blank = L.layerGroup();  // fondo claro para uso sin Internet
-  cartoLight.addTo(map);
+  claroEsri.addTo(map);
 
   // ---- capas geográficas (vectoriales, funcionan offline) ----
   const GEO = window.GEO || {};
@@ -1250,7 +1259,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   });
 
   L.control.layers(
-    {'Mapa Internet (CARTO)':cartoLight, 'Fondo claro (offline)':blank},
+    {'Mapa claro (Esri)':claroEsri, 'Mapa OSM (color)':osm, 'Fondo claro (offline)':blank},
     {'🏫 Escuelas':cluster, 'Municipios':lyrMun, 'Carreteras':lyrCarr,
      'Localidades (al acercar)':gLoc, 'Colonias (al acercar)':gCol, 'Calles · ciudades (al acercar)':gCalles,
      '⭕ Radio 1 km':r1, '⭕ Radio 1.5 km':r15, '⭕ Radio 2 km':r2, '⭕ Radio 3 km':r3, '⭕ Radio 4.5 km':r45, '⭕ Radio 5 km':r5, '⭕ Radio 6 km':r6},
@@ -1680,14 +1689,23 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     ['lat','LATITUD'],['lon','LONGITUD']
   ];
   function csvCell(v){ v=(v==null?'':String(v)); return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  // ¿corriendo dentro de la app de escritorio sin barras (pywebview)?
+  function isPywebviewApp(){ return !!(window.pywebview && window.pywebview.api); }
+  // Guardar texto: en la app usa el diálogo nativo "Guardar como" (API Python);
+  // en navegador usa la descarga normal por blob.
+  function saveText(name, text, mime){
+    if(isPywebviewApp()){ try{ window.pywebview.api.save_text(name, text); }catch(e){} return; }
+    const blob = new Blob([text],{type:(mime||'text/plain')+';charset=utf-8;'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }
   function downloadCSV(indices, name){
     const head = ALL_COLS.map(c=>c[1]).join(',');
     const lines = indices.map(i=>{
       const r=ROWS[i]; return ALL_COLS.map(c=>csvCell(r[F[c[0]]])).join(',');
     });
-    const blob = new Blob(['﻿'+head+'\n'+lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
-    document.body.appendChild(a); a.click(); a.remove();
+    saveText(name, '﻿'+head+'\n'+lines.join('\n'), 'text/csv');
   }
   document.getElementById('i_dl').onclick = ()=>{
     if(current==null)return; const r=ROWS[current];
@@ -1719,13 +1737,19 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
         ignoreElements: el => el.classList && el.classList.contains('leaflet-top') // oculta zoom/capas/ubicación
       });
       const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(/:/g,'');
-      canvas.toBlob(blob=>{
-        if(!blob){ alert('No se pudo generar la imagen.'); return; }
-        const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-        a.download='SIG_Escuelas_Yucatan_'+stamp+'.jpg';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-      }, 'image/jpeg', 0.92);
+      const fname = 'SIG_Escuelas_Yucatan_'+stamp+'.jpg';
+      if(isPywebviewApp()){
+        const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+        try{ window.pywebview.api.save_base64(fname, b64); }catch(e){ alert('No se pudo guardar la imagen.'); }
+      } else {
+        canvas.toBlob(blob=>{
+          if(!blob){ alert('No se pudo generar la imagen.'); return; }
+          const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+          a.download=fname;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+        }, 'image/jpeg', 0.92);
+      }
     }catch(e){
       alert('No se pudo generar la imagen del mapa.\n'+(e && e.message ? e.message : '')+
             '\nSi el mapa de fondo viene de Internet, espera a que cargue por completo e inténtalo de nuevo.');
