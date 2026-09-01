@@ -1582,7 +1582,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
 
   // Punto activo (escuela abierta o punto colocado)
   function activePoint(){
-    if(current!=null){ const r=ROWS[current]; return {lat:+r[F.lat], lon:+r[F.lon], label:r[F.nombre], kind:'escuela'}; }
+    if(current!=null){ const r=ROWS[current]; return {lat:+r[F.lat], lon:+r[F.lon], label:r[F.nombre], kind:'escuela', idx:current}; }
     if(currentPlace) return {lat:currentPlace.lat, lon:currentPlace.lon, label:currentPlace.label, kind:'punto'};
     return null;
   }
@@ -1632,7 +1632,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   const routePts=[]; let routeLine=null;
   function addRoutePt(){
     const p=activePoint(); if(!p) return;
-    routePts.push({lat:p.lat, lon:p.lon, label:p.label, kind:p.kind});
+    routePts.push({lat:p.lat, lon:p.lon, label:p.label, kind:p.kind, idx:p.idx});
     drawRoute(); updateRoutePanel();
   }
   function removeRoutePt(i){ routePts.splice(i,1); drawRoute(); updateRoutePanel(); }
@@ -1667,13 +1667,20 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
       const c=L.DomUtil.create('div'); c.id='routePanel';
       c.innerHTML=`<div class="rp-head"><span>🧭 Ruta · <span id="rp-count"></span></span><button id="rp-hide" title="Ocultar">–</button></div>`+
         `<ol id="rp-list"></ol><div class="rp-dist" id="rp-dist"></div>`+
-        `<div class="rp-actions"><button class="btn primary" id="rp-open">🗺 Abrir en Google Maps</button><button class="btn" id="rp-clear">Limpiar ruta</button></div>`;
+        `<div class="rp-actions"><button class="btn primary" id="rp-open">🗺 Abrir en Google Maps</button><button class="btn" id="rp-dl">⬇ Guardar escuelas (CSV)</button><button class="btn" id="rp-clear">Limpiar ruta</button></div>`;
       L.DomEvent.disableClickPropagation(c); L.DomEvent.disableScrollPropagation(c);
       return c;
     }
   });
   map.addControl(new RouteControl());
   document.getElementById('rp-open').onclick=openRouteGoogle;
+  // Guardar en CSV la información completa de las escuelas de la ruta (en su orden)
+  function downloadRouteCSV(){
+    const idx = routePts.filter(p=>p.kind==='escuela' && p.idx!=null).map(p=>p.idx);
+    if(!idx.length){ alert('La ruta no tiene escuelas para guardar (solo puntos colocados en el mapa).'); return; }
+    downloadCSV(idx, `ruta_escuelas_${idx.length}.csv`);
+  }
+  document.getElementById('rp-dl').onclick=downloadRouteCSV;
   document.getElementById('rp-clear').onclick=clearRoute;
   document.getElementById('rp-hide').onclick=()=>document.getElementById('routePanel').classList.remove('show');
   document.getElementById('i_addRoute').onclick=addRoutePt;
