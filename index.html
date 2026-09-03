@@ -1152,7 +1152,9 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   const colorFor = r => NIVEL_COLORS[dispVal('nivel', r[F.nivel])] || '#94a3b8';
 
   // ---- map ----
-  const map = L.map('map',{preferCanvas:true}).setView([20.7,-89.0],8);
+  // zoomSnap/zoomDelta: pasos de zoom más cortos (fraccionados) en botones + / − ,
+  // doble clic y rueda del ratón, en lugar del salto grande de nivel completo.
+  const map = L.map('map',{preferCanvas:true, zoomSnap:0.25, zoomDelta:0.25, wheelPxPerZoomLevel:120}).setView([20.7,-89.0],8);
   // Fondos de mapa GRATUITOS sin API key. (CARTO dejó de ser gratis y ahora
   // marca los tiles con "API KEY REQUIRED"; por eso se reemplaza por Esri/OSM.)
   const esriBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
