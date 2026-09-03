@@ -1263,12 +1263,19 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   // setLatLng (eso SÍ mueve el hit-test) y dibujamos las líneas guía en el MISMO
   // renderer por defecto (mismo canvas), para no crear un 2º canvas que tape los clics.
   const spiderLayer = L.layerGroup().addTo(map);
-  let spiderOpen = false;
-  function unspiderfy(){ if(!spiderOpen) return; spiderLayer.clearLayers(); spiderOpen = false; }
+  let spiderOpen = false, spiderCluster = null;
+  function unspiderfy(){
+    if(!spiderOpen) return;
+    spiderLayer.clearLayers();
+    // restaurar el ícono del clúster que habíamos ocultado
+    if(spiderCluster && spiderCluster._icon){ spiderCluster._icon.style.opacity=''; spiderCluster._icon.style.pointerEvents=''; }
+    spiderCluster = null; spiderOpen = false;
+  }
   // Posiciones (offset en píxeles) alrededor del centro: círculo si son pocos,
   // espiral si son muchos (mismas fórmulas que usa markercluster).
   function spiderPositions(count){
     const res = [];
+    if(count === 2){ return [[0,-22],[0,22]]; }   // dos escuelas: una arriba, una abajo
     if(count < 9){
       const footSep = 25, circumference = footSep * (2 + count),
             legLength = circumference / (2*Math.PI), angleStep = (2*Math.PI) / count;
@@ -1289,6 +1296,10 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     const center = clusterMarker.getLatLng();
     const centerPt = map.latLngToLayerPoint(center);
     const offs = spiderPositions(children.length);
+    // ocultar el ícono del clúster mientras está abanicado y que NO capture clics
+    // (si queda encima, tapa los puntos apilados y no deja abrir su ficha)
+    spiderCluster = clusterMarker;
+    if(clusterMarker._icon){ clusterMarker._icon.style.opacity = '0'; clusterMarker._icon.style.pointerEvents = 'none'; }
     children.forEach((child, k)=>{
       const i = child.__i;
       const pt = L.point(centerPt.x + offs[k][0], centerPt.y + offs[k][1]);
