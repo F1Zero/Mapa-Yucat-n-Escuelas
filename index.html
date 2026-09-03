@@ -1248,9 +1248,74 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
     if(btn) btn.style.display = radiusGroups.some(g=>g._circle) ? '' : 'none';
   }
 
-  const cluster = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:45, spiderfyOnMaxZoom:true});
+  // Spiderfy propio (ver bloque abajo): desactivamos el de markercluster y el zoom
+  // automático al hacer clic, para controlarlo nosotros.
+  const cluster = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:45,
+    spiderfyOnMaxZoom:false, zoomToBoundsOnClick:false});
   // al iniciar: solo Escuelas activa (las demás capas se activan desde el control)
   map.addLayer(cluster);
+
+  // ====== Spiderfy PROPIO para circleMarker en canvas ======
+  // El spiderfy integrado de markercluster está hecho para marcadores DOM; con
+  // circleMarker (canvas) separa los puntos visualmente pero NO mueve su zona
+  // clicable (el hit-test se queda en el punto original), así que el "abanico" se
+  // ve pero no responde al clic. Aquí clonamos los puntos y los movemos con
+  // setLatLng (eso SÍ mueve el hit-test) y dibujamos las líneas guía en el MISMO
+  // renderer por defecto (mismo canvas), para no crear un 2º canvas que tape los clics.
+  const spiderLayer = L.layerGroup().addTo(map);
+  let spiderOpen = false;
+  function unspiderfy(){ if(!spiderOpen) return; spiderLayer.clearLayers(); spiderOpen = false; }
+  // Posiciones (offset en píxeles) alrededor del centro: círculo si son pocos,
+  // espiral si son muchos (mismas fórmulas que usa markercluster).
+  function spiderPositions(count){
+    const res = [];
+    if(count < 9){
+      const footSep = 25, circumference = footSep * (2 + count),
+            legLength = circumference / (2*Math.PI), angleStep = (2*Math.PI) / count;
+      for(let i=count-1;i>=0;i--){ const a = angleStep*i; res.push([legLength*Math.cos(a), legLength*Math.sin(a)]); }
+    } else {
+      let legLength = 11, angle = 0; const footSep = 28, lengthFactor = 5;
+      for(let i=count-1;i>=0;i--){
+        angle += footSep/legLength + i*0.0005;
+        res.push([legLength*Math.cos(angle), legLength*Math.sin(angle)]);
+        legLength += (2*Math.PI*lengthFactor)/angle;
+      }
+    }
+    return res;
+  }
+  function spiderfyCluster(clusterMarker){
+    unspiderfy();
+    const children = clusterMarker.getAllChildMarkers();
+    const center = clusterMarker.getLatLng();
+    const centerPt = map.latLngToLayerPoint(center);
+    const offs = spiderPositions(children.length);
+    children.forEach((child, k)=>{
+      const i = child.__i;
+      const pt = L.point(centerPt.x + offs[k][0], centerPt.y + offs[k][1]);
+      const ll = map.layerPointToLatLng(pt);
+      // línea guía en el mismo canvas (sin renderer explícito) y por debajo de los puntos
+      const leg = L.polyline([center, ll], {color:'#94a3b8', weight:1.5, opacity:.7, interactive:false});
+      leg.addTo(spiderLayer); if(leg.bringToBack) leg.bringToBack();
+      // punto abanicado: creado YA en su posición final => hit-test correcto
+      const m = L.circleMarker(ll, {radius:PT_RADIUS, color:'#fff', weight:1, fillColor:colorFor(ROWS[i]), fillOpacity:.95});
+      m.bindTooltip(String(ROWS[i][F.cct]||''), {permanent:true, direction:'right', className:'cct-label', offset:[7,0]});
+      m.on('click', function(ev){ if(ev&&ev.originalEvent) L.DomEvent.stopPropagation(ev.originalEvent); showInfo(i); });
+      m.addTo(spiderLayer);
+    });
+    spiderOpen = true;
+  }
+  // Clic en un clúster: si las escuelas están casi en el mismo punto (o ya estamos
+  // en el zoom máximo), abanicamos; si están separadas, acercamos a su extensión.
+  cluster.on('clusterclick', function(e){
+    const children = e.layer.getAllChildMarkers();
+    const pts = children.map(c=>map.latLngToLayerPoint(c.getLatLng()));
+    const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+    const spread = Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys));
+    if(spread <= 10 || map.getZoom() >= map.getMaxZoom()) spiderfyCluster(e.layer);
+    else { unspiderfy(); e.layer.zoomToBounds(); }
+  });
+  map.on('zoomstart', unspiderfy);           // colapsar al hacer zoom (no al mover)
+  map.on('click', function(){ unspiderfy(); }); // clic en vacío cierra el abanico
 
   // Las escuelas siempre encima: cualquier capa vectorial que se active se manda al fondo
   // del lienzo, para que los puntos de escuelas sigan visibles y manejables.
@@ -1430,6 +1495,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
   let visible = [];
   function render(){
     cluster.clearLayers();
+    unspiderfy();
     visible = [];
     const markers = [];
     for(let i=0;i<ROWS.length;i++){
@@ -1439,6 +1505,7 @@ window.GEO = {"municipios":{"type":"FeatureCollection","features":[{"type":"Feat
       const m = L.circleMarker([r[F.lat],r[F.lon]],{
         radius:PT_RADIUS, color:'#fff', weight:1, fillColor:colorFor(r), fillOpacity:.9
       });
+      m.__i = i;   // índice de fila, usado por el spiderfy propio
       m.bindPopup(()=>popupHtml(i));
       m.bindTooltip(String(r[F.cct]||''), {permanent:true, direction:'right', className:'cct-label', offset:[7,0]});
       m.on('click',()=>showInfo(i));
