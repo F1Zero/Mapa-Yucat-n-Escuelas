@@ -1798,9 +1798,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   function csvCell(v){ v=(v==null?'':String(v)); return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
   // ¿corriendo dentro de la app de escritorio sin barras (pywebview)?
   function isPywebviewApp(){ return !!(window.pywebview && window.pywebview.api); }
-  // Guardar texto: en la app usa el diálogo nativo "Guardar como" (API Python);
+  // ¿corriendo dentro del contenedor NATIVO (C++/WebView2)?  Se comunica por postMessage.
+  function isNativeHost(){ return !!(window.chrome && window.chrome.webview && window.chrome.webview.postMessage); }
+  // Guardar texto (CSV): en la app nativa/pywebview usa el diálogo "Guardar como";
   // en navegador usa la descarga normal por blob.
   function saveText(name, text, mime){
+    if(isNativeHost()){ try{ window.chrome.webview.postMessage('saveText\n'+name+'\n'+text); }catch(e){} return; }
     if(isPywebviewApp()){ try{ window.pywebview.api.save_text(name, text); }catch(e){} return; }
     const blob = new Blob([text],{type:(mime||'text/plain')+';charset=utf-8;'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
@@ -1845,7 +1848,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
       });
       const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(/:/g,'');
       const fname = 'SIG_Escuelas_Yucatan_'+stamp+'.jpg';
-      if(isPywebviewApp()){
+      if(isNativeHost()){
+        const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+        try{ window.chrome.webview.postMessage('saveB64\n'+fname+'\n'+b64); }catch(e){ alert('No se pudo guardar la imagen.'); }
+      } else if(isPywebviewApp()){
         const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
         try{ window.pywebview.api.save_base64(fname, b64); }catch(e){ alert('No se pudo guardar la imagen.'); }
       } else {
