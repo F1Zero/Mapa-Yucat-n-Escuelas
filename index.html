@@ -819,6 +819,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   label.chk .dot{width:10px;height:10px;border-radius:50%;flex:none}
   label.chk .n{margin-left:auto;font-size:11px;color:var(--muted)}
   #map{flex:1;min-height:0;background:#f7fafd}
+  /* Modo captura (app nativa): oculta la interfaz y deja el mapa a pantalla completa
+     para que CapturePreview tome solo el mapa. Se conserva la atribución (leaflet-bottom). */
+  body.capturing header,
+  body.capturing #filters,
+  body.capturing #info,
+  body.capturing #routePanel,
+  body.capturing #infoPeek,
+  body.capturing .pwa-banner,
+  body.capturing .leaflet-top{display:none !important}
   .leaflet-control-layers{font-size:13px}
   .leaflet-control-layers-list{line-height:1.7}
   #info{width:360px;background:var(--panel);border-left:1px solid var(--line);overflow:auto;display:none}
@@ -1169,6 +1178,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
   const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19, subdomains:'abc', crossOrigin:'anonymous', attribution:'&copy; OpenStreetMap'
   });
+  // Capas de Google (requieren Internet). Sin crossOrigin: los servidores de tiles de
+  // Google no envían cabeceras CORS, así que ponerlo rompería la carga. Efecto: la
+  // descarga de imagen del mapa puede no funcionar con estas capas activas (sí con Esri).
+  const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
+    subdomains:['mt0','mt1','mt2','mt3'], maxZoom:21, maxNativeZoom:20, attribution:'&copy; Google'
+  });  // satélite
+  const googleHyb = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{
+    subdomains:['mt0','mt1','mt2','mt3'], maxZoom:21, maxNativeZoom:20, attribution:'&copy; Google'
+  });  // híbrido (satélite + nombres)
   const blank = L.layerGroup();  // fondo claro para uso sin Internet
   claroEsri.addTo(map);
 
@@ -1353,7 +1371,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
 
   L.control.layers(
-    {'Mapa claro (Esri)':claroEsri, 'Mapa OSM (color)':osm, 'Fondo claro (offline)':blank},
+    {'Mapa claro (Esri)':claroEsri, 'Mapa OSM (color)':osm,
+     '🛰️ Google Satélite':googleSat, '🛰️ Google Híbrido (satélite + nombres)':googleHyb,
+     'Fondo claro (offline)':blank},
     {'🏫 Escuelas':cluster, 'Municipios':lyrMun, 'Carreteras':lyrCarr,
      'Localidades (al acercar)':gLoc, 'Colonias (al acercar)':gCol, 'Calles · ciudades (al acercar)':gCalles,
      '⭕ Radio 1 km':r1, '⭕ Radio 1.5 km':r15, '⭕ Radio 2 km':r2, '⭕ Radio 3 km':r3, '⭕ Radio 4.5 km':r45, '⭕ Radio 5 km':r5, '⭕ Radio 6 km':r6},
@@ -1838,20 +1858,53 @@ svg.leaflet-image-layer.leaflet-interactive path {
   };
 
   // ---- Descargar imagen del mapa (vista actual) en alta resolución ----
+  // Captura NATIVA (app de escritorio): el host C++ usa CapturePreview, que toma la
+  // imagen YA renderizada del WebView — por eso SÍ funciona con fondos de Google
+  // (Satélite/Híbrido), a diferencia de html2canvas que los bloquea por seguridad (CORS).
+  function captureNative(fname, btn, txt){
+    return new Promise(resolve=>{
+      let fin=false;
+      const cleanup = ()=>{
+        if(fin) return; fin=true;
+        document.body.classList.remove('capturing');
+        try{ map.invalidateSize(); }catch(e){}
+        if(btn){ btn.disabled=false; btn.textContent=txt; }
+        try{ window.chrome.webview.removeEventListener('message', onMsg); }catch(e){}
+        resolve();
+      };
+      const onMsg = (ev)=>{ if(ev && ev.data==='captureDone') cleanup(); };
+      try{ window.chrome.webview.addEventListener('message', onMsg); }catch(e){}
+      if(btn){ btn.disabled=true; btn.textContent='⏳ Generando…'; }
+      // modo captura: ocultar la interfaz y poner el mapa a pantalla completa
+      document.body.classList.add('capturing');
+      try{ map.invalidateSize(); }catch(e){}
+      // dar tiempo a que carguen los tiles del área antes de pedir la captura
+      setTimeout(()=>{
+        try{ window.chrome.webview.postMessage('captureMap\n'+fname+'\n'); }
+        catch(e){ cleanup(); }
+      }, 900);
+      // salvaguarda: si no llega respuesta, restaurar la interfaz igual
+      setTimeout(()=>cleanup(), 20000);
+    });
+  }
   document.getElementById('btnImg').onclick = async function(){
-    const btn = this, mapEl = document.getElementById('map');
-    const txt = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Generando…';
+    const btn = this, txt = btn.textContent;
+    const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(/:/g,'');
+    // --- App nativa: captura real del WebView (funciona con Google Satélite/Híbrido) ---
+    if(isNativeHost()){
+      await captureNative('SIG_Escuelas_Yucatan_'+stamp+'.png', btn, txt);
+      return;
+    }
+    // --- pywebview / navegador: html2canvas (no captura tiles de Google por CORS) ---
+    const mapEl = document.getElementById('map');
+    btn.disabled = true; btn.textContent = '⏳ Generando…';
     try{
       const canvas = await html2canvas(mapEl, {
         useCORS:true, backgroundColor:'#f7fafd', scale:2, logging:false, imageTimeout:15000,
         ignoreElements: el => el.classList && el.classList.contains('leaflet-top') // oculta zoom/capas/ubicación
       });
-      const stamp = new Date().toISOString().slice(0,16).replace('T','_').replace(/:/g,'');
       const fname = 'SIG_Escuelas_Yucatan_'+stamp+'.jpg';
-      if(isNativeHost()){
-        const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-        try{ window.chrome.webview.postMessage('saveB64\n'+fname+'\n'+b64); }catch(e){ alert('No se pudo guardar la imagen.'); }
-      } else if(isPywebviewApp()){
+      if(isPywebviewApp()){
         const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
         try{ window.pywebview.api.save_base64(fname, b64); }catch(e){ alert('No se pudo guardar la imagen.'); }
       } else {
@@ -1865,7 +1918,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }
     }catch(e){
       alert('No se pudo generar la imagen del mapa.\n'+(e && e.message ? e.message : '')+
-            '\nSi el mapa de fondo viene de Internet, espera a que cargue por completo e inténtalo de nuevo.');
+            '\nSi usas un fondo de Google (Satélite/Híbrido) en el navegador, la descarga de imagen no está permitida por seguridad: cambia a "Mapa claro (Esri)" o usa la app de escritorio.');
     }finally{ btn.disabled=false; btn.textContent=txt; }
   };
 
