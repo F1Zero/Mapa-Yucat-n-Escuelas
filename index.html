@@ -1481,6 +1481,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
         `<span>${etiqueta(val)}</span><span class="n">${n}</span>`;
       body.appendChild(lab);
     });
+    // Subcontrol: checkbox extra "Público (sin CONAFE)" = subcontrol Público y modalidad ≠ CONAFE
+    if(g.key==='subcontrol'){
+      const nPub = ROWS.filter(esPublicoSinConafe).length;
+      const lab = document.createElement('label'); lab.className='chk';
+      lab.innerHTML = `<input type="checkbox" data-g="subcontrol" value="__PUB_NO_CONAFE__">`+
+        `<span>Público (sin CONAFE)</span><span class="n">${nPub}</span>`;
+      body.appendChild(lab);
+    }
     wrap.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',onFilterChange));
     wrap.querySelectorAll('.actions a').forEach(a=>a.addEventListener('click',e=>{
       e.stopPropagation();
@@ -1528,10 +1536,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
   });
 
   // ---- filtering logic ----
+  // "Público (sin CONAFE)": subcontrol Público y modalidad (MODALIDAD) distinta de CONAFE
+  function esPublicoSinConafe(r){
+    return String(r[F.subcontrol]||'').toUpperCase().indexOf('BLIC')>=0
+        && String(r[F.modalidad]||'').trim().toUpperCase()!=='CONAFE';
+  }
   function matches(r){
     for(const g of GROUPS){
       const set = active[g.key];
-      if(set.size && !set.has(String(dispVal(g.key, r[F[g.key]])))) return false;
+      if(!set.size) continue;
+      if(g.key==='subcontrol'){
+        let ok=false;
+        for(const s of set){
+          if(s==='__PUB_NO_CONAFE__'){ if(esPublicoSinConafe(r)){ ok=true; break; } }
+          else if(s===String(dispVal('subcontrol', r[F.subcontrol]))){ ok=true; break; }
+        }
+        if(!ok) return false;
+      } else if(!set.has(String(dispVal(g.key, r[F[g.key]])))){ return false; }
     }
     for(const k in search){
       if(search[k]){
