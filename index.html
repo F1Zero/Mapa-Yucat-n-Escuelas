@@ -1637,7 +1637,26 @@ svg.leaflet-image-layer.leaflet-interactive path {
     // Plano (PDF en Drive): el botón aparece solo si esta escuela tiene plano
     const plano = String(r[F.plano]||'').trim();
     const pbtn = document.getElementById('i_plano');
-    if(plano){ pbtn.style.display=''; pbtn.onclick = ()=> window.open('https://drive.google.com/file/d/'+plano+'/view','_blank','noopener'); }
+    if(plano){
+      pbtn.style.display='';
+      // Abrir el plano con un enlace <a> real (no window.open, que en móvil se bloquea).
+      // En la app de Windows (host nativo): /view abre el visor de Drive en el navegador
+      // del sistema (funciona bien). En navegador/CELULAR: la app de Google Drive
+      // INTERCEPTA los enlaces /view y no abre el archivo, así que usamos la URL de
+      // DESCARGA DIRECTA del PDF (uc?export=download), que la app no intercepta y sí
+      // entrega el plano.
+      pbtn.onclick = ()=>{
+        const a = document.createElement('a');
+        if(isNativeHost()){
+          a.href = 'https://drive.google.com/file/d/'+plano+'/view';
+          a.target = '_blank'; a.rel = 'noopener noreferrer';
+        } else {
+          a.href = 'https://drive.google.com/uc?export=download&id='+plano;
+          a.rel = 'noopener noreferrer';
+        }
+        document.body.appendChild(a); a.click(); a.remove();
+      };
+    }
     else { pbtn.style.display='none'; pbtn.onclick=null; }
     document.getElementById('i_cct').textContent = r[F.cct] + ' · ' + (r[F.turno]||'');
     document.getElementById('i_nombre').textContent = r[F.nombre];
