@@ -2495,6 +2495,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); enviar(); } });
     // El botón "Limpiar todo" del mapa también quita mediciones/áreas, círculos y colores
     const bReset=document.getElementById('btnReset'); if(bReset) bReset.addEventListener('click', limpiarTodoExtra);
+    // Ocultar el botón/panel del asistente cuando la ficha está ABIERTA (tapa la parte inferior);
+    // reaparece al cerrarla o minimizarla.
+    const infoEl=document.getElementById('info');
+    if(infoEl){
+      const syncFab=()=>{ const abierta=infoEl.classList.contains('show') && !infoEl.classList.contains('min');
+        fab.style.display = abierta ? 'none' : ''; if(abierta) panel.classList.remove('show'); };
+      new MutationObserver(syncFab).observe(infoEl, {attributes:true, attributeFilter:['class']});
+      syncFab();
+    }
   })();
 
   render();
