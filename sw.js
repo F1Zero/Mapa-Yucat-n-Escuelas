@@ -1,5 +1,5 @@
 // Service Worker - SIG Escuelas Yucatán (generado automáticamente)
-const CACHE = 'sig-escuelas-20261027120406';
+const CACHE = 'sig-escuelas-20261027123207';
 const ASSETS = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-180.png', './icon-maskable-512.png'];
 self.addEventListener('install', e => {
